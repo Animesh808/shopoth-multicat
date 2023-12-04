@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shopoth_multicat_development
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: "redis:7-alpine"
+    command: redis-server
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/var/lib/redis/data
+
+  sidekiq:
+    depends_on:
+      - db
+      - redis
+    build:
+      context: .
+      target: build
+    command: bundle exec sidekiq
+    volumes:
+      - .:/shopoth-multicat
+    env_file:
+      - .env
+
+  web:
+    build:
+      context: .
+      target: base
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shopoth_multicat_development
+      REDIS_URL: redis://redis:6379/1
+      DATABASE_URL: postgres://postgres:postgres@db:5432/shopoth_multicat_development
+    volumes:
+      - .:/shopoth-multicat
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+      - sidekiq
+
+volumes:
+  pg_data:
+  redis_data:
